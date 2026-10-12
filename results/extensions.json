@@ -1,0 +1,27 @@
+{
+  "target_sensitivity": 0.98,
+  "thresholds": {
+    "vqc": 0.2644030651575744,
+    "logreg": 0.20737254302394834
+  },
+  "explainability": {
+    "completeness_max_abs_error": 0.00024015663041154767,
+    "spearman_vqc_vs_logreg": 0.3552836484983315,
+    "spearman_p_value": 0.05402076812046253,
+    "top_features_vqc": {
+      "worst texture": 0.0821,
+      "mean texture": 0.0698,
+      "worst radius": 0.0609,
+      "worst perimeter": 0.06,
+      "mean radius": 0.0576
+    },
+    "top_features_logreg": {
+      "worst texture": 0.0979,
+      "radius error": 0.0596,
+      "worst symmetry": 0.0592,
+      "mean concave points": 0.0557,
+      "compactness error": 0.0549
+    },
+    "example_case": 205
+  }
+}

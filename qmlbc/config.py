@@ -25,6 +25,14 @@ QSVM_GRID = {
     "qsvm__C": [0.1, 1.0, 10.0],
 }
 
+# Extensions (run_extensions.py)
+TARGET_SENSITIVITY = 0.98     # operating point the decision threshold is calibrated to
+NOISE_CNOT_ERRORS = [0.0, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2]
+NOISE_SHOTS = [10, 30, 100, 300, 1000, 3000]
+NOISE_SHOT_LEVELS = [0.0, 0.02, 0.05]   # CNOT error rates for the shot study
+NOISE_SHOT_REPEATS = 200
+IG_STEPS = 64
+
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT / "results"
 FIG_DIR = RESULTS_DIR / "figures"

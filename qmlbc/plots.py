@@ -3,6 +3,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 import pennylane as qml
 from matplotlib.colors import LinearSegmentedColormap
@@ -220,3 +221,107 @@ def ablation(df):
            xticks=sorted(df["layers"].unique()))
     ax.legend(loc="lower right")
     _save(fig, "12_vqc_ablation.png")
+
+
+def operating_points(df):
+    """Sensitivity and specificity per model/threshold. `df` has a 'group' column."""
+    groups = list(dict.fromkeys(df["group"]))
+    color = dict(zip(groups, SERIES))
+    names = list(df.index)[::-1]
+    fig, axes = plt.subplots(1, 2, figsize=(9.2, 0.42 * len(names) + 1.7), sharey=True)
+    for ax, metric in zip(axes, ["Sensitivity", "Specificity"]):
+        lo = min(0.75, df[metric].min() - 0.03)
+        for i, name in enumerate(names):
+            v = df.loc[name, metric]
+            ax.plot([lo, v], [i, i], color=GRID, linewidth=1.5, zorder=1)
+            ax.scatter(v, i, s=55, color=color[df.loc[name, "group"]], zorder=2,
+                       edgecolor=SURFACE, linewidth=1)
+            ax.text(v + 0.006, i, f"{v:.3f}", va="center", fontsize=8, color=INK)
+        ax.set(title=metric, xlim=(lo, 1.05))
+        ax.grid(axis="y", visible=False)
+    axes[0].set_yticks(range(len(names)), names)
+    handles = [plt.Line2D([], [], marker="o", linestyle="", color=c, label=g)
+               for g, c in color.items()]
+    fig.legend(handles=handles, loc="lower center", ncol=len(handles),
+               bbox_to_anchor=(0.5, -0.07))
+    fig.suptitle("Test-set operating points: single runs, ensemble and calibrated threshold",
+                 x=0.01, ha="left", fontsize=12, fontweight="bold")
+    fig.tight_layout()
+    _save(fig, "13_operating_points.png")
+
+
+def gate_noise(df):
+    """Accuracy (as trained vs read-out recalibrated) and AUC against CNOT error rate."""
+    x = np.arange(len(df))
+    labels = [f"{p:g}" for p in df["cnot_error"]]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
+    for color, (col, label) in zip(SERIES, [("acc_raw", "Read-out as trained"),
+                                           ("acc_recal", "Read-out recalibrated")]):
+        axes[0].errorbar(x, df[f"{col}_mean"], yerr=df[f"{col}_std"], color=color,
+                         marker="o", markersize=6, capsize=3, label=label)
+    axes[0].set(title="Test accuracy under gate noise", ylabel="Accuracy (mean ± s.d., 5 seeds)")
+    axes[0].legend(loc="lower left")
+    axes[1].errorbar(x, df["auc_mean"], yerr=df["auc_std"], color=SERIES[2], marker="o",
+                     markersize=6, capsize=3)
+    axes[1].set(title="Ranking quality under gate noise", ylabel="ROC AUC (mean ± s.d., 5 seeds)",
+                ylim=(min(0.9, df["auc_mean"].min() - 0.02), 1.005))
+    for ax in axes:
+        ax.set_xticks(x, labels)
+        ax.set_xlabel("CNOT depolarising error rate (single-qubit gates: one tenth)")
+    fig.tight_layout()
+    _save(fig, "14_gate_noise.png")
+
+
+def shot_noise(df):
+    """Accuracy against the number of measurement shots, one line per gate-noise level."""
+    fig, ax = plt.subplots(figsize=(6.2, 3.9))
+    for color, (level, grp) in zip(SERIES, df.groupby("cnot_error", sort=True)):
+        ax.plot(grp["shots"], grp["acc_mean"], color=color, marker="o", markersize=6,
+                label=f"CNOT error {level:g}")
+        ax.fill_between(grp["shots"], grp["acc_mean"] - grp["acc_std"],
+                        grp["acc_mean"] + grp["acc_std"], color=color, alpha=0.15, linewidth=0)
+    ax.set_xscale("log")
+    ax.set(title="Test accuracy against measurement shots per patient",
+           xlabel="Shots (circuit repetitions per patient)",
+           ylabel="Accuracy (mean ± s.d. over repetitions)")
+    ax.legend(loc="lower right")
+    _save(fig, "15_shot_noise.png")
+
+
+def global_attribution(df):
+    """Share of total attribution per cell-nucleus quantity, one bar per model."""
+    df = df.sort_values(df.columns[0])
+    y = np.arange(len(df))
+    h = 0.36
+    fig, ax = plt.subplots(figsize=(6.8, 5.0))
+    for k, (color, col) in enumerate(zip(SERIES, df.columns)):
+        pos = y + (0.5 - k) * (h + 0.04)
+        ax.barh(pos, df[col], height=h, color=color, label=col)
+        for yy, v in zip(pos, df[col]):
+            ax.text(v + 0.002, yy, f"{v:.1%}", va="center", fontsize=8, color=INK)
+    ax.set_yticks(y, df.index)
+    ax.set(title="What the models rely on: share of total attribution",
+           xlabel="Share of mean |attribution| over test patients",
+           xlim=(0, df.values.max() * 1.12))
+    ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(0.05))
+    ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0, decimals=0))
+    ax.grid(axis="y", visible=False)
+    fig.legend(*ax.get_legend_handles_labels(), loc="lower center", ncol=2,
+               bbox_to_anchor=(0.5, -0.06))
+    _save(fig, "16_global_attribution.png")
+
+
+def patient_attribution(attr, title, top=10):
+    """Signed attributions for one patient. `attr` is a Series indexed by feature."""
+    attr = attr.reindex(attr.abs().sort_values(ascending=False).index).head(top)[::-1]
+    towards = {"Towards malignant": "#e34948", "Towards benign": SERIES[0]}
+    colors = [towards["Towards malignant" if v > 0 else "Towards benign"] for v in attr]
+    fig, ax = plt.subplots(figsize=(6.6, 4.2))
+    ax.barh(attr.index, attr.values, height=0.6, color=colors)
+    ax.axvline(0, color=AXIS, linewidth=1)
+    ax.set(title=title, xlabel="Contribution to the logit (integrated gradients)")
+    ax.grid(axis="y", visible=False)
+    fig.legend(handles=[plt.Rectangle((0, 0), 1, 1, color=c, label=l)
+                        for l, c in towards.items()], loc="lower center", ncol=2,
+               bbox_to_anchor=(0.5, -0.08))
+    _save(fig, "17_patient_attribution.png")
