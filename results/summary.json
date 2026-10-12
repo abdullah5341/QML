@@ -1,0 +1,21 @@
+{
+  "n_samples": 569,
+  "n_train": 455,
+  "n_test": 114,
+  "class_counts": {
+    "Benign": 357,
+    "Malignant": 212
+  },
+  "pca_explained_variance": [
+    0.4459352220227063,
+    0.18545255453685278,
+    0.09584641206459542,
+    0.06593768249233611
+  ],
+  "pca_cumulative_variance": 0.7931718711164906,
+  "qsvm_selected": {
+    "qsvm__C": 10.0,
+    "qsvm__bandwidth": 0.25
+  },
+  "vqc_parameters": 38
+}
