@@ -24,7 +24,7 @@ def _angle_gradient(member, angles):
     return grad
 
 
-def integrated_gradients(pipeline, X, baseline, steps=64):
+def integrated_gradients(pipeline, X, baseline, steps=64, members=None):
     """Attribute the ensemble's logit to the original features (Sundararajan et al., 2017).
 
     The gradient of the logit is integrated along the straight line from
@@ -32,12 +32,38 @@ def integrated_gradients(pipeline, X, baseline, steps=64):
     are in logit units and add up to logit(x) - logit(baseline), so every unit
     of the prediction is accounted for. Positive = pushes towards malignant.
 
+    Because the features reach the circuit only through a linear map to four
+    angles, the result has the form delta_x * (g @ jacobian): for each patient
+    the 30 attributions are fixed by four numbers g, one per qubit.
+
     `pipeline` is StandardScaler -> PCA -> MinMaxScaler(clip) -> VQCEnsemble.
+    `members` restricts the explanation to a subset of the ensemble.
+    """
+    delta, g, jacobian = _path_gradients(pipeline, X, baseline, steps, members)
+    return delta * (g @ jacobian)
+
+
+def angle_attributions(pipeline, X, baseline, steps=64, members=None):
+    """Integrated gradients at the level of the four qubit angles (principal components).
+
+    The same explanation grouped by the component each feature acts through:
+    sum_k (delta_x @ jacobian.T)_k * g_k equals the sum of the feature attributions.
+    """
+    delta, g, jacobian = _path_gradients(pipeline, X, baseline, steps, members)
+    return (delta @ jacobian.T) * g
+
+
+def _path_gradients(pipeline, X, baseline, steps, members):
+    """Path-averaged d(logit)/d(angle) on the straight line from baseline to each patient.
+
+    Returns delta_x = X - baseline, g = the average angle gradient along the path
+    with clipped angles set to zero (n x qubits), and jacobian = d(angle)/d(x) of
+    the linear preprocessing (qubits x features).
     """
     X = np.atleast_2d(np.asarray(X, dtype=float))
     baseline = np.asarray(baseline, dtype=float)
     scaler, pca, angle = pipeline["scale"], pipeline["pca"], pipeline["angle"]
-    members = pipeline[-1].members_
+    members = pipeline[-1].members_ if members is None else members
     preprocess = pipeline[:-1]
 
     # d(angle_k)/d(x_j) for the linear part of the preprocessing chain.
@@ -52,8 +78,8 @@ def integrated_gradients(pipeline, X, baseline, steps=64):
     inside = (angles > lo) & (angles < hi)       # clipped angles do not respond to x
 
     grad_angle = np.mean([_angle_gradient(m, angles) for m in members], axis=0)
-    grad_x = (grad_angle * inside) @ jacobian
-    return delta * grad_x.reshape(steps, *X.shape).mean(axis=0)
+    g = (grad_angle * inside).reshape(steps, X.shape[0], -1).mean(axis=0)
+    return delta, g, jacobian
 
 
 def linear_attributions(pipeline, X, baseline):
@@ -66,10 +92,12 @@ def linear_attributions(pipeline, X, baseline):
     return (np.asarray(X, dtype=float) - np.asarray(baseline)) / scaler.scale_ * clf.coef_[0]
 
 
+def quantity_of(feature):
+    """'worst concave points' -> 'concave points'."""
+    return feature.replace("mean ", "").replace("worst ", "").replace(" error", "")
+
+
 def by_quantity(values, feature_names):
     """Sum per-feature values over the mean / error / worst variants of each quantity."""
-    def quantity(feature):
-        return feature.replace("mean ", "").replace("worst ", "").replace(" error", "")
-
-    values = pd.Series(np.asarray(values), index=[quantity(f) for f in feature_names])
+    values = pd.Series(np.asarray(values), index=[quantity_of(f) for f in feature_names])
     return values.groupby(level=0).sum()[BASE_QUANTITIES]

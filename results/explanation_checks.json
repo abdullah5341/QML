@@ -1,0 +1,23 @@
+{
+  "shapley_completeness_max_error": 3.552713678800501e-15,
+  "ig_vs_shapley_mean_spearman_per_patient": 0.9994683678894205,
+  "ig_vs_shapley_top_property_agreement": 1.0,
+  "ig_vs_shapley_global_spearman": 0.9999999999999999,
+  "vqc_vs_logreg_global_spearman": 0.8181818181818182,
+  "deletion_patients": 105,
+  "deletion_area": {
+    "VQC integrated gradients": 0.223588101507103,
+    "Logistic regression attributions": 0.3032028022247373,
+    "Random order": 0.5164676916893179
+  },
+  "sanity_spearman_trained_vs_random_features": 0.4681419901254806,
+  "sanity_spearman_trained_vs_random_qubits": 0.6649122807017543,
+  "stability_mean_spearman_per_patient": 0.9344464609800364,
+  "stability_mean_spearman_global": 0.9620467185761956,
+  "qubit_share": {
+    "qubit 0 (PC1)": 0.6012995432976873,
+    "qubit 1 (PC2)": 0.21273446764003837,
+    "qubit 2 (PC3)": 0.08068883549954423,
+    "qubit 3 (PC4)": 0.10527715356273
+  }
+}

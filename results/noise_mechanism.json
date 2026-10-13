@@ -1,0 +1,5 @@
+{
+  "k_eff": 19.728569271759376,
+  "max_accuracy_gap_after_collapse": 0.007176495870105937,
+  "noisy_cnot_channels_in_circuit": 24
+}

@@ -1,0 +1,14 @@
+{
+  "design": {
+    "splits": 5,
+    "repeats": 3,
+    "inner_folds": 3
+  },
+  "test_set_auc_difference": {
+    "auc_difference_vqc_minus_logreg": 0.0016534391534391846,
+    "ci": [
+      -0.003968253968253957,
+      0.00925925925925919
+    ]
+  }
+}

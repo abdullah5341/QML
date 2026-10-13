@@ -325,3 +325,106 @@ def patient_attribution(attr, title, top=10):
                         for l, c in towards.items()], loc="lower center", ncol=2,
                bbox_to_anchor=(0.5, -0.08))
     _save(fig, "17_patient_attribution.png")
+
+
+def fair_comparison(folds, order, highlight, reference):
+    """Per-fold AUC and accuracy for every model (dots) with the mean (bar)."""
+    names = order[::-1]
+    fig, axes = plt.subplots(1, 3, figsize=(12.5, 0.45 * len(names) + 1.6), sharey=True)
+    metrics = ["AUC", "Accuracy", "Sensitivity at 95% specificity"]
+    rng = np.random.default_rng(0)
+    for ax, metric in zip(axes, metrics):
+        for i, name in enumerate(names):
+            v = folds.loc[folds["model"] == name, metric].values
+            color = SERIES[2] if name == highlight else (MUTED if name == reference else SERIES[0])
+            ax.scatter(v, i + rng.uniform(-0.15, 0.15, len(v)), s=12, color=color, alpha=0.55,
+                       linewidth=0)
+            ax.plot([v.mean()] * 2, [i - 0.3, i + 0.3], color=color, linewidth=2.5)
+            ax.text(1.002, i, f"{v.mean():.3f}", va="center", fontsize=8, color=INK,
+                    transform=ax.get_yaxis_transform())
+        ax.set_title(metric)
+        ax.grid(axis="y", visible=False)
+    axes[0].set_yticks(range(len(names)), names)
+    fig.suptitle("Repeated cross-validation: 15 folds per model, same 4 principal components",
+                 x=0.01, ha="left", fontsize=12, fontweight="bold")
+    fig.tight_layout()
+    _save(fig, "18_fair_comparison.png")
+
+
+def reliability(probas, y, bins=10):
+    """Reliability diagram: observed malignancy rate against predicted probability."""
+    fig, ax = plt.subplots(figsize=(5.4, 4.6))
+    ax.plot([0, 1], [0, 1], color=AXIS, linewidth=1, linestyle="--")
+    edges = np.linspace(0, 1, bins + 1)
+    for color, (name, p) in zip(SERIES, probas.items()):
+        which = np.clip(np.digitize(p, edges[1:-1]), 0, bins - 1)
+        xs = [p[which == b].mean() for b in range(bins) if np.any(which == b)]
+        ys = [y[which == b].mean() for b in range(bins) if np.any(which == b)]
+        ax.plot(xs, ys, color=color, marker="o", markersize=5, label=name)
+    ax.set(title="Calibration of out-of-fold probabilities", xlabel="Predicted P(malignant)",
+           ylabel="Observed fraction malignant", xlim=(0, 1), ylim=(0, 1))
+    ax.legend(loc="upper left", fontsize=9)
+    _save(fig, "19_reliability.png")
+
+
+def noise_linearity(df):
+    """Left: contraction factor against error strength. Right: rank preservation (AUC)."""
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 3.9))
+    for color, (kind, grp) in zip(SERIES, df.groupby("kind", sort=False)):
+        axes[0].plot(grp["strength"], grp["r2"], color=color, marker="o", markersize=5,
+                     label=kind)
+        axes[1].plot(grp["strength"], grp["auc"], color=color, marker="o", markersize=5,
+                     label=kind)
+    axes[0].set(title="Is the noisy output an affine copy of the clean one?",
+                xlabel="Error strength", ylabel="R² of noisy on clean ⟨Z₀⟩")
+    axes[1].set(title="Ranking of test patients", xlabel="Error strength", ylabel="ROC AUC")
+    axes[1].legend(loc="lower left", fontsize=9)
+    fig.tight_layout()
+    _save(fig, "20_noise_mechanism.png")
+
+
+def shot_collapse(df):
+    """Accuracy against shots and against effective shots N·λ²."""
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 3.9), sharey=True)
+    for color, (p, grp) in zip(SERIES, df.groupby("cnot_error", sort=True)):
+        lam = grp["lambda"].iloc[0]
+        for ax, x in zip(axes, [grp["shots"], grp["shots"] * lam ** 2]):
+            ax.plot(x, grp["acc_mean"], color=color, marker="o", markersize=5,
+                    label=f"CNOT error {p:g} (λ = {lam:.2f})")
+    axes[0].set(title="Accuracy against shots", xlabel="Shots per patient", xscale="log",
+                ylabel="Test accuracy (recalibrated)")
+    axes[1].set(title="Against effective shots N·λ²", xlabel="N·λ²", xscale="log")
+    axes[1].legend(loc="lower right", fontsize=9)
+    fig.tight_layout()
+    _save(fig, "21_shot_collapse.png")
+
+
+def deletion_curves(curves):
+    """Fraction of the prediction remaining as features are reset to the baseline."""
+    fig, ax = plt.subplots(figsize=(6.2, 4.0))
+    for color, (name, c) in zip(SERIES, curves.items()):
+        ax.plot(np.arange(len(c)), c, color=color, label=name)
+    ax.axhline(0, color=AXIS, linewidth=1)
+    ax.set(title="Faithfulness: deleting the most important features first",
+           xlabel="Features reset to the average patient",
+           ylabel="Median fraction of logit change remaining", xlim=(0, len(c) - 1))
+    ax.legend(loc="upper right", fontsize=9)
+    _save(fig, "22_deletion_curves.png")
+
+
+def explanation_agreement(shares):
+    """Share of attribution per nucleus property under three explanation methods."""
+    shares = shares.sort_values(shares.columns[0])
+    y = np.arange(len(shares))
+    h = 0.26
+    fig, ax = plt.subplots(figsize=(6.8, 5.4))
+    for k, (color, col) in enumerate(zip(SERIES, shares.columns)):
+        ax.barh(y + (1 - k) * (h + 0.02), shares[col], height=h, color=color, label=col)
+    ax.set_yticks(y, shares.index)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0, decimals=0))
+    ax.set(title="Two explanation methods for the VQC, and logistic regression",
+           xlabel="Share of mean |attribution| over test patients")
+    ax.grid(axis="y", visible=False)
+    fig.legend(*ax.get_legend_handles_labels(), loc="lower center", ncol=1,
+               bbox_to_anchor=(0.5, -0.12))
+    _save(fig, "23_explanation_agreement.png")

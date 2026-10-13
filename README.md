@@ -47,6 +47,36 @@ Noise results use a simplified depolarising model in simulation, not a real devi
 
 **Checked without the test set.** Both procedures were repeated on five validation splits of the training data. The noise recalibration is confirmed (82% to 95% accuracy at 10% CNOT error). The calibrated threshold again raises sensitivity (92% to 98%, 13 missed cancers out of 170 down to 4), but at a specificity of 91%, lower than the 96% seen on the test set, so expect about 9% false alarms. Calibrating on too few patients (34 cancers) makes the threshold unreliable. See Section 6.4 of the paper.
 
+## Stronger evidence
+
+Four further analyses (paper, Section 7) tighten the comparison and test the claims above.
+
+**Fair comparison.** 5-fold cross-validation repeated 3 times over all 569 patients. Every model gets the same 4 principal components; the classical models are tuned by inner cross-validation, and a classical neural network with the same number of parameters as the VQC (37 vs 38) is added. Differences are tested with corrected resampled t-tests and McNemar tests, Holm-adjusted.
+
+| Model, 4 principal components | AUC | Accuracy | Sensitivity at 95% specificity |
+|---|---|---|---|
+| Logistic regression (tuned) | 0.993 | 0.964 | 0.970 |
+| SVM, RBF (tuned) | 0.994 | 0.968 | 0.973 |
+| Random forest (tuned) | 0.984 | 0.942 | 0.928 |
+| XGBoost (tuned) | 0.987 | 0.947 | 0.937 |
+| Neural network, 37 parameters | 0.975 | 0.945 | 0.934 |
+| QSVM (tuned) | 0.993 | 0.959 | 0.969 |
+| **VQC, 38 parameters** | **0.993** | **0.960** | **0.967** |
+
+The VQC is indistinguishable from the best classical models and better than the tree ensembles and the equal-size network, which a five-parameter logistic regression also is, so that is not a quantum effect.
+
+![Fair comparison](results/figures/18_fair_comparison.png)
+
+**AUC and sensitivity.** All AUCs are at the ceiling (test-set intervals overlap; VQC minus logistic regression +0.002, 95% CI −0.004 to +0.009). Sensitivity on 42 test cancers has wide intervals (41/42: 0.877 to 0.996). Compared at a fixed 95% specificity, the models find the same number of cancers.
+
+**Why recalibration undoes noise.** For depolarising, amplitude-damping and read-out errors, the noisy circuit output is an affine copy of the clean one (R² ≥ 0.99). That keeps the ranking, explains why refitting two numbers restores accuracy, and predicts that the shots needed grow as 1/λ²; accuracy curves at four noise levels collapse onto one when plotted against N·λ². Coherent over-rotation breaks the affine relation and the recovery, as the hypothesis predicted.
+
+![Shot collapse](results/figures/21_shot_collapse.png)
+
+**How far the explanations can be trusted.** Integrated gradients agree with exact Shapley values, are faithful in a deletion test (they remove the prediction faster than a random order or an order borrowed from logistic regression) and are stable across the five circuits. They only partly pass a weight-randomisation sanity check: through the PCA map, each patient's 30 feature attributions are fixed by four numbers from the circuit, so part of what they show is the PCA.
+
+**Novelty.** A closely related 2026 study (Zorlu and Colak, *Diagnostics* 16, 1996) already benchmarks a VQC on this dataset with noise tests, calibration and explainability. What this project adds is the separation of discrimination from calibration under noise, its tested mechanism, and explanation checks on the quantum model itself. See Section 1.1 of the paper.
+
 ## The quantum model
 
 ![VQC circuit](results/figures/06_vqc_circuit.png)
@@ -65,6 +95,9 @@ python run_experiment.py --quick  # skips VQC cross-validation and the ablation,
 python run_extensions.py          # ensemble, noise and explainability, about 20 minutes
 python run_validation_check.py    # calibration and noise checks on validation splits, about 8 minutes
 python run_validation_check.py --oof   # the same with the main study's threshold procedure, about 40 minutes
+python run_fair_comparison.py     # repeated CV, tuned and parameter-matched baselines, tests, about 15 minutes
+python run_noise_mechanism.py     # affine-noise mechanism, four error models, shot collapse, about 15 minutes
+python run_explanation_checks.py  # Shapley agreement, deletion, sanity and stability checks, about 3 minutes
 ```
 
 This regenerates everything in `results/` and the trained models in `models/`.
@@ -99,10 +132,14 @@ qmlbc/
   noise.py       gate-error and shot-noise simulation, read-out recalibration
   explain.py     integrated-gradient attributions
   metrics.py     accuracy, precision, recall, F1, ROC AUC
+  stats.py       Wilson and bootstrap intervals, corrected t-test, McNemar, Holm, calibration error
   plots.py       all figures
 run_experiment.py   base study: EDA, baselines, QSVM, VQC, ablation
 run_extensions.py   ensemble and calibration, noise study, explainability
 run_validation_check.py   the same checks on validation splits, test set untouched
+run_fair_comparison.py    repeated cross-validation comparison with statistics
+run_noise_mechanism.py    why read-out recalibration works, and when it fails
+run_explanation_checks.py validity checks of the explanations
 app.py              Streamlit demo
 paper/paper.md      the research paper
 results/            CSV tables, summary.json, extensions.json, figures/

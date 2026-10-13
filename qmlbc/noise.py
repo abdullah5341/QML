@@ -69,3 +69,59 @@ def recalibrate_readout(z_train, y_train):
 
 def classify(z, scale, bias):
     return (scale * np.asarray(z) + bias > 0).astype(int)
+
+
+ERROR_MODELS = ("depolarizing", "amplitude damping", "readout", "coherent over-rotation")
+
+
+@lru_cache(maxsize=None)
+def build_error_model_circuit(n_qubits, kind):
+    """The VQC under one of four error models, all controlled by one strength s.
+
+    depolarizing             unital gate noise, as build_noisy_circuit
+    amplitude damping        non-unital gate noise (energy relaxation towards |0>),
+                             strength s after each CNOT qubit and s/10 after 1-qubit gates
+    readout                  the measured qubit is flipped with probability s
+    coherent over-rotation   every trained rotation angle is applied as (1 + s) x angle,
+                             a systematic calibration error that leaves the state pure
+
+    The first three are channels that act on <Z_0> close to an affine map, the
+    last changes the function the circuit computes.
+    """
+    if kind not in ERROR_MODELS:
+        raise ValueError(kind)
+    dev = qml.device("default.mixed", wires=n_qubits)
+
+    @qml.qnode(dev, interface=None, diff_method=None)
+    def circuit(weights, x, s):
+        def gate_noise(wires, strength):
+            for w in wires:
+                if kind == "depolarizing":
+                    qml.DepolarizingChannel(strength, wires=w)
+                elif kind == "amplitude damping":
+                    qml.AmplitudeDamping(strength, wires=w)
+
+        over = 1 + s if kind == "coherent over-rotation" else 1.0
+        p_one = SINGLE_TO_TWO_QUBIT_ERROR * s
+        for i in range(n_qubits):
+            qml.RY(x[..., i], wires=i)
+            gate_noise([i], p_one)
+        for layer_weights in weights:
+            for i in range(n_qubits):
+                for gate, k in ((qml.RX, 0), (qml.RY, 1), (qml.RZ, 2)):
+                    gate(over * layer_weights[i, k], wires=i)
+                    gate_noise([i], p_one)
+            for i in range(n_qubits):
+                j = (i + 1) % n_qubits
+                qml.CNOT(wires=[i, j])
+                gate_noise([i, j], s)
+        if kind == "readout":
+            qml.BitFlip(s, wires=0)
+        return qml.expval(qml.PauliZ(0))
+
+    return circuit
+
+
+def error_model_expectation(vqc, angles, kind, s):
+    circuit = build_error_model_circuit(vqc.n_qubits, kind)
+    return np.asarray(circuit(vqc.weights_, np.atleast_2d(angles), s), dtype=float)
