@@ -45,7 +45,7 @@ Three extensions ask what it would take to trust the quantum model in a clinic.
 
 Noise results use a simplified depolarising model in simulation, not a real device.
 
-**Checked without the test set.** Repeating both procedures on five validation splits of the training data confirms the noise recalibration (82% to 95% accuracy at 10% CNOT error). For the threshold, sensitivity again rises (90% to 97%), but the threshold is unstable when calibrated on few patients and specificity drops to 83%, a much higher cost than the test set showed. See Section 6.4 of the paper.
+**Checked without the test set.** Both procedures were repeated on five validation splits of the training data. The noise recalibration is confirmed (82% to 95% accuracy at 10% CNOT error). The calibrated threshold again raises sensitivity (92% to 98%, 13 missed cancers out of 170 down to 4), but at a specificity of 91%, lower than the 96% seen on the test set, so expect about 9% false alarms. Calibrating on too few patients (34 cancers) makes the threshold unreliable. See Section 6.4 of the paper.
 
 ## The quantum model
 
@@ -63,7 +63,8 @@ pip install -r requirements.txt
 python run_experiment.py          # base study, about 8 minutes on a laptop CPU
 python run_experiment.py --quick  # skips VQC cross-validation and the ablation, about 2 minutes
 python run_extensions.py          # ensemble, noise and explainability, about 20 minutes
-python run_validation_check.py    # repeats calibration and noise checks on validation splits, about 8 minutes
+python run_validation_check.py    # calibration and noise checks on validation splits, about 8 minutes
+python run_validation_check.py --oof   # the same with the main study's threshold procedure, about 40 minutes
 ```
 
 This regenerates everything in `results/` and the trained models in `models/`.

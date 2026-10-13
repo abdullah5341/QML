@@ -1,6 +1,7 @@
 """Confirm the calibrated threshold and the noise recalibration without the test set.
 
-    python run_validation_check.py      # about 8 minutes on a laptop CPU
+    python run_validation_check.py          # about 8 minutes on a laptop CPU
+    python run_validation_check.py --oof    # about 40 minutes
 
 The main study reports both results on one held-out test set that several
 analyses have looked at. Here the test set is never touched. The 455 training
@@ -11,13 +12,20 @@ patients are split three ways, five times over with different random splits:
     validation (20%)   report
 
 so every reported number comes from patients used for neither training nor selection.
+
+With --oof the threshold is instead chosen as in the main study, from
+out-of-fold predictions over fit + calibration together (80% of the training
+patients), and the circuits are then retrained on that 80%. Same validation
+splits, four times as many cancers behind each threshold.
 """
+import argparse
 import time
 
 import numpy as np
 import pandas as pd
+from sklearn.base import clone
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 from sklearn.pipeline import Pipeline
 
 from qmlbc import classical, config, data, noise
@@ -72,9 +80,54 @@ def noise_rows(repeat, ensemble, X_cal, y_cal, X_val, y_val):
     return rows
 
 
-def main():
+def out_of_fold_rows(repeat, name, model, X_dev, y_dev, X_val, y_val):
+    """As operating_rows, with the threshold from out-of-fold predictions on X_dev."""
+    cv = StratifiedKFold(config.CV_FOLDS, shuffle=True, random_state=config.SEED)
+    oof = cross_val_predict(clone(model), X_dev, y_dev, cv=cv, method="predict_proba")[:, 1]
+    threshold = threshold_for_sensitivity(y_dev, oof, config.TARGET_SENSITIVITY)
+    p_val = model.fit(X_dev, y_dev).predict_proba(X_val)[:, 1]
+    return [
+        {"repeat": repeat, "model": name, "threshold": label, "value": value,
+         "cancers": int(np.sum(y_val == 1)),
+         **sensitivity_specificity(y_val, (p_val >= value).astype(int))}
+        for label, value in [("0.5", 0.5), ("calibrated", threshold)]
+    ]
+
+
+def report_operating(operating):
+    pd.set_option("display.width", 200)
+    grouped = operating.groupby(["model", "threshold"], sort=False)
+    summary = grouped[["value", "Sensitivity", "Specificity", "Accuracy"]].agg(["mean", "std"])
+    pooled = grouped[["cancers", "Missed cancers", "False alarms"]].sum()
+    print("\nPer repeat:\n" + operating.round(3).to_string(index=False))
+    print("\nMean and s.d. over repeats:\n" + summary.round(3).to_string())
+    print("\nPooled over repeats:\n" + pooled.to_string())
+
+
+def main_out_of_fold(X_train, y_train):
+    operating = []
+    for repeat in range(REPEATS):
+        X_fit, y_fit, X_cal, y_cal, X_val, y_val = three_way_split(
+            X_train, y_train, config.SEED + repeat)
+        X_dev, y_dev = pd.concat([X_fit, X_cal]), pd.concat([y_fit, y_cal])
+        ensemble = Pipeline(data.quantum_steps(config.N_QUBITS) + [("vqc", VQCEnsemble())])
+        logreg = classical.full_feature_models()["Logistic Regression"]
+        rows = out_of_fold_rows(repeat, "VQC ensemble", ensemble, X_dev, y_dev, X_val, y_val)
+        operating += rows + out_of_fold_rows(
+            repeat, "Logistic regression", logreg, X_dev, y_dev, X_val, y_val)
+        log(f"repeat {repeat + 1}/{REPEATS} done (development {len(X_dev)}, "
+            f"validation {len(X_val)}); VQC threshold {rows[1]['value']:.3f}")
+    operating = pd.DataFrame(operating)
+    operating.to_csv(config.RESULTS_DIR / "validation_operating_points_oof.csv", index=False)
+    report_operating(operating)
+    log("Done.")
+
+
+def main(out_of_fold=False):
     X, y = data.load_dataset()
     X_train, _, y_train, _ = data.split(X, y)   # the test set is discarded here
+    if out_of_fold:
+        return main_out_of_fold(X_train, y_train)
 
     operating, noisy = [], []
     for repeat in range(REPEATS):
@@ -93,17 +146,14 @@ def main():
     operating.to_csv(config.RESULTS_DIR / "validation_operating_points.csv", index=False)
     noisy.to_csv(config.RESULTS_DIR / "validation_noise.csv", index=False)
 
-    pd.set_option("display.width", 200)
-    grouped = operating.groupby(["model", "threshold"], sort=False)
-    summary = grouped[["value", "Sensitivity", "Specificity", "Accuracy"]].agg(["mean", "std"])
-    pooled = grouped[["cancers", "Missed cancers", "False alarms"]].sum()
-    print("\nPer repeat:\n" + operating.round(3).to_string(index=False))
-    print("\nMean and s.d. over repeats:\n" + summary.round(3).to_string())
-    print("\nPooled over repeats:\n" + pooled.to_string())
+    report_operating(operating)
     print("\nNoise, mean and s.d. over repeats:\n" + noisy.groupby("cnot_error")[
         ["acc_as_trained", "acc_recalibrated", "auc"]].agg(["mean", "std"]).round(3).to_string())
     log("Done.")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--oof", action="store_true",
+                        help="choose the threshold from out-of-fold predictions on 80%% of the data")
+    main(parser.parse_args().oof)
