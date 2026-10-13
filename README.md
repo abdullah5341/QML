@@ -45,6 +45,8 @@ Three extensions ask what it would take to trust the quantum model in a clinic.
 
 Noise results use a simplified depolarising model in simulation, not a real device.
 
+**Checked without the test set.** Repeating both procedures on five validation splits of the training data confirms the noise recalibration (82% to 95% accuracy at 10% CNOT error). For the threshold, sensitivity again rises (90% to 97%), but the threshold is unstable when calibrated on few patients and specificity drops to 83%, a much higher cost than the test set showed. See Section 6.4 of the paper.
+
 ## The quantum model
 
 ![VQC circuit](results/figures/06_vqc_circuit.png)
@@ -61,6 +63,7 @@ pip install -r requirements.txt
 python run_experiment.py          # base study, about 8 minutes on a laptop CPU
 python run_experiment.py --quick  # skips VQC cross-validation and the ablation, about 2 minutes
 python run_extensions.py          # ensemble, noise and explainability, about 20 minutes
+python run_validation_check.py    # repeats calibration and noise checks on validation splits, about 8 minutes
 ```
 
 This regenerates everything in `results/` and the trained models in `models/`.
@@ -98,6 +101,7 @@ qmlbc/
   plots.py       all figures
 run_experiment.py   base study: EDA, baselines, QSVM, VQC, ablation
 run_extensions.py   ensemble and calibration, noise study, explainability
+run_validation_check.py   the same checks on validation splits, test set untouched
 app.py              Streamlit demo
 paper/paper.md      the research paper
 results/            CSV tables, summary.json, extensions.json, figures/

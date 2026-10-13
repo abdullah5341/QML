@@ -8,7 +8,7 @@
 
 ## Abstract
 
-We study whether a small hybrid quantum-classical model can match classical machine learning on a standard medical classification task. Using the Breast Cancer Wisconsin (Diagnostic) dataset (569 samples, 30 features), we reduce the data to four principal components and classify them with two quantum models simulated on four qubits: a Variational Quantum Classifier (VQC) with RY angle encoding and three RX-RY-RZ + CNOT layers (38 trainable parameters), and a support vector machine using a quantum fidelity kernel (QSVM). They are compared with logistic regression, an RBF support vector machine, a random forest and XGBoost, each trained both on all 30 features and on the same four principal components. On a held-out test set of 114 patients the VQC reaches an accuracy of 0.956 ± 0.018 and a ROC AUC of 0.997 ± 0.001 (mean ± s.d. over five random initialisations), and the QSVM reaches 0.947 (AUC 0.997). The best classical models reach 0.974. The quantum models are therefore competitive with, but not better than, classical baselines, and the differences are within the statistical uncertainty of the test set. We find that the VQC's ranking of patients is stable across initialisations while its decision threshold is not (sensitivity ranges from 0.79 to 0.98), and we show analytically and empirically why a one-layer version of the circuit fails. Three extensions follow from these findings. An ensemble of five circuits with a threshold calibrated for 98% sensitivity detects 41 of 42 test cancers, identical to a classical model calibrated the same way. Under simulated gate noise the model's ranking survives (AUC 0.996 at 10% CNOT error) and accuracy is recovered by refitting two classical read-out parameters, at the cost of more measurement shots. Integrated-gradient explanations show the quantum model relying on the same cell-nucleus properties as the classical one. No quantum advantage is claimed or observed; the contribution is a leakage-free, reproducible benchmark and an analysis of where such models stand.
+We study whether a small hybrid quantum-classical model can match classical machine learning on a standard medical classification task. Using the Breast Cancer Wisconsin (Diagnostic) dataset (569 samples, 30 features), we reduce the data to four principal components and classify them with two quantum models simulated on four qubits: a Variational Quantum Classifier (VQC) with RY angle encoding and three RX-RY-RZ + CNOT layers (38 trainable parameters), and a support vector machine using a quantum fidelity kernel (QSVM). They are compared with logistic regression, an RBF support vector machine, a random forest and XGBoost, each trained both on all 30 features and on the same four principal components. On a held-out test set of 114 patients the VQC reaches an accuracy of 0.956 ± 0.018 and a ROC AUC of 0.997 ± 0.001 (mean ± s.d. over five random initialisations), and the QSVM reaches 0.947 (AUC 0.997). The best classical models reach 0.974. The quantum models are therefore competitive with, but not better than, classical baselines, and the differences are within the statistical uncertainty of the test set. We find that the VQC's ranking of patients is stable across initialisations while its decision threshold is not (sensitivity ranges from 0.79 to 0.98), and we show analytically and empirically why a one-layer version of the circuit fails. Three extensions follow from these findings. An ensemble of five circuits with a threshold calibrated for 98% sensitivity detects 41 of 42 test cancers, identical to a classical model calibrated the same way, although a check on validation splits shows the calibrated threshold to be unstable when little calibration data is available. Under simulated gate noise the model's ranking survives (AUC 0.996 at 10% CNOT error) and accuracy is recovered by refitting two classical read-out parameters, at the cost of more measurement shots. Integrated-gradient explanations show the quantum model relying on the same cell-nucleus properties as the classical one. No quantum advantage is claimed or observed; the contribution is a leakage-free, reproducible benchmark and an analysis of where such models stand.
 
 ---
 
@@ -465,6 +465,31 @@ The texture of this patient's nuclei is below average and argues strongly for be
 
 *Scope.* Attributions describe the model, not the biology, and depend on the chosen reference patient. They were not validated against expert judgement.
 
+### 6.4 Confirmation without the test set
+
+Sections 6.1 and 6.2 select nothing on the test set: the threshold comes from out-of-fold training predictions and the read-out is refitted on training outputs. Both are nevertheless *reported* on one test set of 114 patients that the whole study has looked at repeatedly. As a check, `run_validation_check.py` repeats both procedures without touching the test set. The 455 training patients are split into fit (60%, train the circuits), calibration (20%, choose the threshold and refit the noisy read-out) and validation (20%, report), five times with different random splits. Each validation split holds 34 cancers and 57 benign cases, 170 and 285 over the five.
+
+**Table 7.** Validation results pooled over five splits (170 cancers, 285 benign).
+
+| Model | Threshold | Sensitivity (mean ± s.d.) | Specificity (mean ± s.d.) | Missed cancers | False alarms |
+|---|---|---|---|---|---|
+| VQC ensemble | 0.5 | 0.900 ± 0.026 | 0.993 ± 0.010 | 17 | 2 |
+| VQC ensemble | calibrated | 0.971 ± 0.036 | 0.832 ± 0.184 | 5 | 48 |
+| Logistic regression | 0.5 | 0.929 ± 0.049 | 0.989 ± 0.010 | 12 | 3 |
+| Logistic regression | calibrated | 0.947 ± 0.060 | 0.839 ± 0.220 | 9 | 46 |
+
+**Table 8.** Gate noise on validation data (mean ± s.d. over five splits, read-out refitted on the calibration split).
+
+| CNOT error | Accuracy, read-out as trained | Accuracy, read-out recalibrated | ROC AUC |
+|---|---|---|---|
+| 0 | 0.953 ± 0.013 | 0.956 ± 0.013 | 0.994 ± 0.005 |
+| 5% | 0.944 ± 0.012 | 0.956 ± 0.012 | 0.993 ± 0.006 |
+| 10% | 0.821 ± 0.060 | 0.953 ± 0.011 | 0.993 ± 0.006 |
+
+*Noise recalibration is confirmed.* At 10% CNOT error the accuracy falls to 0.821 as trained and returns to 0.953 after refitting the two read-out parameters, with the AUC unchanged, in every split.
+
+*Threshold calibration is confirmed in direction but not in cost.* Sensitivity rises from 0.900 to 0.971 (17 missed cancers become 5), but specificity falls from 0.993 to 0.832 (2 false alarms become 48), far more than the two extra false alarms seen on the test set. The chosen threshold is also unstable, ranging from 0.02 to 0.56 across splits; in one split it came out above 0.5 and missed one more cancer than the default. Two things contribute. With only 34 cancers in a calibration split, a 98% target allows no misses, so the threshold is set by the single lowest-scoring cancer, an extreme and noisy statistic; the threshold of Section 6.1 rests on 170 cancers and is better determined. And the test-set figure of Table 4 (one missed cancer, three false alarms) is a single, favourable draw. The claim that survives is the weaker one: lowering the threshold buys sensitivity for both the quantum and the classical model, the two remain comparable, and the price in false alarms is uncertain and depends strongly on how much data the threshold is calibrated on.
+
 ---
 
 ## 7. Discussion
@@ -484,7 +509,7 @@ Yes: a four-qubit hybrid model reaches performance competitive with classical mo
 1. **Small, single-centre dataset.** 569 patients from one institution collected around 1990; a single test split of 114. Results may not transfer to other populations, imaging devices or cytology protocols. No external validation was performed.
 2. **Unsupervised dimensionality reduction.** PCA discards 21% of the variance without regard to the label. It happened to preserve the signal here, but in general the qubit budget forces a compression that classical models do not need.
 3. **Simulated, simplified noise.** The headline results are noiseless. Section 6.2 adds depolarising gate errors and shot noise, but not coherent errors, crosstalk, read-out errors or drift, and nothing was run on a real device.
-4. **Sensitivity to initialisation.** Recall varied between 0.79 and 0.98 across seeds at a fixed threshold. Ensembling and threshold calibration (Section 6.1) remove this on the present test set, but the calibrated sensitivity rests on 42 malignant test cases, where one patient is 2.4 percentage points.
+4. **Sensitivity to initialisation.** Recall varied between 0.79 and 0.98 across seeds at a fixed threshold. Ensembling and threshold calibration (Section 6.1) remove this on the present test set, but the calibrated sensitivity rests on 42 malignant test cases, where one patient is 2.4 percentage points, and the validation check of Section 6.4 shows that the calibrated threshold is unstable and can cost many more false alarms than the test set suggests.
 5. **Fixed hyperparameters.** The classical baselines use default settings and the VQC architecture was fixed in advance. Tuning might shift individual numbers by a point or two, though not the overall conclusion.
 6. **One operating point.** Table 1 classifies at probability 0.5 and Section 6.1 examines a single alternative (98% target sensitivity). The acceptable trade-off between missed cancers and false alarms is a clinical decision that this study does not make.
 7. **Training cost.** The VQC takes about 20 seconds to train in simulation, against milliseconds for logistic regression, and simulation cost grows exponentially with qubit number.
@@ -506,7 +531,7 @@ We built and evaluated a hybrid quantum-classical pipeline for breast cancer cla
 
 Beyond the headline numbers the study yields three findings. First, the VQC's discrimination is stable across initialisations while its calibration is not, so single-run sensitivity figures are unreliable. Second, the one-layer circuit fails for an identifiable structural reason: the CNOT ring maps the measured observable onto qubits that exclude the dominant feature. Third, most of the diagnostic information survives reduction to four principal components.
 
-Three extensions address clinical readiness. An ensemble of five circuits with a threshold calibrated on out-of-fold predictions detects 41 of 42 test cancers with three false alarms, exactly matching a classical model calibrated the same way. Under simulated depolarising gate noise the ranking of patients is almost unaffected (AUC 0.996 at 10% CNOT error) while the trained read-out fails; refitting two classical parameters restores accuracy, and the remaining cost of noise is a larger number of measurement shots. Integrated-gradient attributions, computed with the parameter-shift rule, show that the quantum model relies on the same nucleus properties as logistic regression.
+Three extensions address clinical readiness. An ensemble of five circuits with a threshold calibrated on out-of-fold predictions detects 41 of 42 test cancers with three false alarms, exactly matching a classical model calibrated the same way; a repeat on validation splits confirms the gain in sensitivity but at a much higher and less predictable cost in false alarms. Under simulated depolarising gate noise the ranking of patients is almost unaffected (AUC 0.996 at 10% CNOT error) while the trained read-out fails; refitting two classical parameters restores accuracy, and the remaining cost of noise is a larger number of measurement shots. Integrated-gradient attributions, computed with the parameter-shift rule, show that the quantum model relies on the same nucleus properties as logistic regression.
 
 The appropriate conclusion is that small quantum models can *match* classical ones on an easy medical task in simulation, not that they offer an advantage.
 
@@ -529,7 +554,8 @@ The appropriate conclusion is that small quantum models can *match* classical on
 ```bash
 pip install -r requirements.txt
 python run_experiment.py     # Sections 2 to 5
-python run_extensions.py     # Section 6
+python run_extensions.py     # Sections 6.1 to 6.3
+python run_validation_check.py   # Section 6.4
 streamlit run app.py         # interactive demo
 ```
 
