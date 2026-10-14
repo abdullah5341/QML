@@ -44,7 +44,7 @@ It is broken into four questions, each answered in its own section:
 
 Variational and kernel quantum classifiers have been applied to the Wisconsin breast cancer data many times, mostly in conference papers and preprints with single train/test splits. The closest study is that of Zorlu and Colak [18], published in 2026. It benchmarks an eight-qubit PennyLane VQC with RY angle encoding and a ZZ-feature-map QSVM against five classical learners, reports calibration, decision-curve analysis and DeLong-type tests, stress-tests the VQC with single-qubit depolarising noise up to $p = 0.1$ (AUC essentially unchanged at about 0.992), explains the VQC with SHAP computed on a gradient-boosted surrogate, and validates externally on the Wisconsin Original cohort. Benchmarking, AUC robustness to depolarising noise, calibration and explainability on this dataset are therefore not new.
 
-Two further strands are relevant. Integrated gradients and baseline SHAP have been adapted to parameterised quantum circuits [19]. In error mitigation, noise that acts as a global depolarising channel is known to rescale expectation values by a common factor that can be estimated and divided out [20].
+Two further strands are relevant. Integrated gradients and baseline SHAP have been adapted to parameterised quantum circuits [19]. In error mitigation, noise that acts as a global depolarising channel is known to rescale expectation values by a common factor that can be estimated and divided out [20]. Pauli-path expansions of noisy circuits, in which each path is damped by the noise it meets, are an established tool for classically simulating noisy random and variational circuits [25, 26]; Section 7.5 uses the same expansion for a different purpose.
 
 Against this background the present study does not propose a new model. What it adds, as far as the sources above show, is (i) the observation that under noise a quantum classifier keeps its discrimination but loses its decision rule, which AUC-only reporting cannot reveal; (ii) a mechanism for this, tested against four error models including one for which it predicts failure, together with the resulting shot-cost law; (iii) recovery by refitting two read-out parameters on labelled data, without the extra calibration circuits of [20]; (iv) explanations computed on the quantum model itself rather than on a surrogate, with validity checks; and (v) a parameter-matched classical baseline with corrected significance tests. A systematic literature search was not carried out, and these points may have precedents in the error-mitigation and quantum-robustness literature that were not found.
 
@@ -691,6 +691,8 @@ where $J$ is the Jacobian of the preprocessing (standardisation, PCA, angle scal
 
 Section 7.3 established the affine regularity empirically. Here it is derived from the structure of the circuit, which yields conditions for when it holds and a test of a prediction about circuit depth (`qmlbc/pauli_paths.py`, `run_pauli_paths.py`).
 
+The tool is not new. Expanding a noisy circuit as a sum over Pauli paths, each damped by the noise it meets, underlies classical algorithms for noisy random circuit sampling [25] and for estimating expectation values of noisy variational circuits [26]; there, the damping of long and high-weight paths is what makes the noisy circuit cheap to simulate. What is used differently here is the question asked of the expansion: not how to approximate the output, but whether the paths that survive carry the same function of the input, which decides whether noise rescales a classifier's output or distorts it.
+
 **Exact decomposition.** In the Heisenberg picture the measured observable $Z_0$ is propagated backwards through the trained gates and expanded in the $4^n$ Pauli strings. A depolarising channel of strength $p$ multiplies every non-identity Pauli on its qubit by $q = 1 - 4p/3$ and leaves the identity unchanged. Each Pauli path from $Z_0$ back to the encoded state is therefore damped by $q_2^{k} q_1^{m}$, where $k$ and $m$ count the two-qubit and single-qubit noise locations at which the path carries a non-identity Pauli on the affected qubit. Grouping paths by $(k, m)$ gives
 
 $$
@@ -870,3 +872,7 @@ Software: Python 3.14, PennyLane 0.45 [16], scikit-learn 1.9 [9], XGBoost 3.4. A
 [23] E. B. Wilson, "Probable inference, the law of succession, and statistical inference," *Journal of the American Statistical Association* 22, 209–212 (1927).
 
 [24] S. M. Lundberg, S.-I. Lee, "A unified approach to interpreting model predictions," *Advances in Neural Information Processing Systems* 30 (2017).
+
+[25] D. Aharonov, X. Gao, Z. Landau, Y. Liu, U. Vazirani, "A polynomial-time classical algorithm for noisy random circuit sampling," *Proceedings of the 55th Annual ACM Symposium on Theory of Computing (STOC)* (2023). arXiv:2211.03999
+
+[26] E. Fontana, M. S. Rudolph, R. Duncan, I. Rungger, C. Cîrstoiu, "Classical simulations of noisy variational quantum circuits," *npj Quantum Information* (2025). doi:10.1038/s41534-024-00955-1; arXiv:2306.05400 (2023)
