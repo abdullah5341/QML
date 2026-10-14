@@ -73,6 +73,12 @@ The VQC is indistinguishable from the best classical models and better than the 
 
 ![Shot collapse](results/figures/21_shot_collapse.png)
 
+**From circuit structure to the regularity.** Propagating the measured observable backwards through the circuit and grouping Pauli paths by how many noisy gates they pass gives the noisy output exactly (agreement with density-matrix simulation to 1e-13) from one noiseless computation. The output stays affine while differently damped paths carry the same function of the input; a *path dispersion* D, computed from the noiseless circuit, predicts where this breaks. Tested on 15 new circuits of 1 to 5 layers: deeper circuits break earlier (one layer never breaks, D = 0; two layers at about 24% CNOT error; five at about 6%), and D orders the circuits by breakdown point (Spearman ρ = −0.97).
+
+![Pauli paths](results/figures/24_pauli_paths.png)
+
+**A baseline with exactly the VQC's function class.** The VQC's output is a combination of 81 trigonometric functions of the four angles. Logistic regression on those 81 features (AUC 0.994, accuracy 0.962) equals the VQC (0.993, 0.960): the circuit's restriction neither helps nor hurts.
+
 **How far the explanations can be trusted.** Integrated gradients agree with exact Shapley values, are faithful in a deletion test (they remove the prediction faster than a random order or an order borrowed from logistic regression) and are stable across the five circuits. They only partly pass a weight-randomisation sanity check: through the PCA map, each patient's 30 feature attributions are fixed by four numbers from the circuit, so part of what they show is the PCA.
 
 **Novelty.** A closely related 2026 study (Zorlu and Colak, *Diagnostics* 16, 1996) already benchmarks a VQC on this dataset with noise tests, calibration and explainability. What this project adds is the separation of discrimination from calibration under noise, its tested mechanism, and explanation checks on the quantum model itself. See Section 1.1 of the paper.
@@ -98,6 +104,8 @@ python run_validation_check.py --oof   # the same with the main study's threshol
 python run_fair_comparison.py     # repeated CV, tuned and parameter-matched baselines, tests, about 15 minutes
 python run_noise_mechanism.py     # affine-noise mechanism, four error models, shot collapse, about 15 minutes
 python run_explanation_checks.py  # Shapley agreement, deletion, sanity and stability checks, about 3 minutes
+python run_trig_baseline.py       # logistic regression on the VQC's 81 trigonometric features, about 2 minutes
+python run_pauli_paths.py         # Pauli-path theory and depth study, about 20 minutes
 ```
 
 This regenerates everything in `results/` and the trained models in `models/`.
@@ -132,6 +140,7 @@ qmlbc/
   noise.py       gate-error and shot-noise simulation, read-out recalibration
   explain.py     integrated-gradient attributions
   metrics.py     accuracy, precision, recall, F1, ROC AUC
+  pauli_paths.py exact Pauli-path decomposition of the noisy output
   stats.py       Wilson and bootstrap intervals, corrected t-test, McNemar, Holm, calibration error
   plots.py       all figures
 run_experiment.py   base study: EDA, baselines, QSVM, VQC, ablation
@@ -140,6 +149,8 @@ run_validation_check.py   the same checks on validation splits, test set untouch
 run_fair_comparison.py    repeated cross-validation comparison with statistics
 run_noise_mechanism.py    why read-out recalibration works, and when it fails
 run_explanation_checks.py validity checks of the explanations
+run_trig_baseline.py      function-class-matched classical baseline
+run_pauli_paths.py        circuit-structure theory of the noise regularity
 app.py              Streamlit demo
 paper/paper.md      the research paper
 results/            CSV tables, summary.json, extensions.json, figures/

@@ -428,3 +428,32 @@ def explanation_agreement(shares):
     fig.legend(*ax.get_legend_handles_labels(), loc="lower center", ncol=1,
                bbox_to_anchor=(0.5, -0.12))
     _save(fig, "23_explanation_agreement.png")
+
+
+def pauli_paths(lam, depth):
+    """Left: lambda exact vs closed form. Right: breakdown point p* against depth."""
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 3.9))
+    p = lam.index.values
+    axes[0].plot(p, lam["lambda_exact"], color=SERIES[0], marker="o", markersize=6,
+                 label="Exact (Pauli-path sum)")
+    axes[0].plot(p, lam["lambda_closed_form"], color=SERIES[1], linestyle="--",
+                 label="Closed form (1 - 4p/3)^k_eff")
+    axes[0].set(title="Attenuation λ of the 3-layer circuits", xlabel="CNOT error p",
+                ylabel="λ (mean of 5 circuits)", yscale="log")
+    axes[0].legend(loc="lower left", fontsize=9)
+    finite = depth.dropna(subset=["p_star_exact"])
+    for color, (L, grp) in zip(SERIES, finite.groupby("layers")):
+        axes[1].scatter(grp["D"], grp["p_star_exact"], s=45, color=color, label=f"{L} layers",
+                        edgecolor=SURFACE, linewidth=1, zorder=3)
+    d = np.logspace(np.log10(finite["D"].min() * 0.7), np.log10(finite["D"].max() * 1.4), 100)
+    axes[1].plot(d, 0.075 / np.sqrt(d), color=MUTED, linestyle="--",
+                 label="First-order prediction 0.075/√D")
+    n_one = int(depth["p_star_exact"].isna().sum())
+    axes[1].text(0.02, 0.04, f"1 layer ({n_one} circuits): D = 0, affine at every p",
+                 transform=axes[1].transAxes, fontsize=8, color=INK_2)
+    axes[1].set(title="Where the affine regularity breaks", xscale="log",
+                xlabel="Path dispersion D (from the noiseless circuit)",
+                ylabel="p* where R² falls below 0.99")
+    axes[1].legend(loc="upper right", fontsize=8)
+    fig.tight_layout()
+    _save(fig, "24_pauli_paths.png")

@@ -8,7 +8,7 @@
 
 ## Abstract
 
-We study whether a small hybrid quantum-classical model can match classical machine learning on breast cancer diagnosis, and what it would take to trust it. On the Breast Cancer Wisconsin (Diagnostic) dataset (569 patients, 30 features) reduced to four principal components, a four-qubit variational quantum classifier (VQC, RY angle encoding, three RX-RY-RZ + CNOT layers, 38 parameters) and a quantum-kernel SVM (QSVM) are compared with tuned classical models on the same inputs, a classical neural network with the same number of parameters, and logistic regression on all 30 features. In 5-fold cross-validation repeated three times over all patients, the VQC reaches an AUC of 0.993 ± 0.005 and an accuracy of 0.960 ± 0.012, statistically indistinguishable from tuned logistic regression, RBF-SVM and the QSVM on the same four inputs (all AUC differences below 0.001; corrected resampled t-tests with Holm adjustment). Near this ceiling AUC cannot separate models, and sensitivity measured on 42 test cancers carries a 95% interval 12 to 18 percentage points wide; comparing models at fixed 95% specificity removes the threshold from the comparison and again shows no difference. Three further analyses examine reliability, robustness and explainability. An ensemble of five circuits with a threshold calibrated for 98% sensitivity reaches 0.976 sensitivity on the test set and on five validation splits, at a specificity of 0.91 on the latter. Under simulated hardware noise the trained read-out fails (accuracy 0.74 at 10% CNOT error) while the ranking of patients survives (AUC 0.996); we show that the noisy circuit output is an affine copy of the noiseless one for depolarising, amplitude-damping and read-out errors (R² ≥ 0.99), which explains why refitting two classical read-out parameters restores accuracy and why the number of measurement shots needed grows as 1/λ², confirmed by a collapse of accuracy curves onto N·λ². Coherent over-rotation errors break the affine relation and the recovery, as predicted. Explanations computed on the quantum model itself (integrated gradients via the parameter-shift rule, exact Shapley values) agree with each other, are faithful in deletion tests and stable across circuits, but only partly pass a weight-randomisation sanity check, because feature-level explanations of this pipeline have only four degrees of freedom set by the circuit. A closely related 2026 study already reports a VQC benchmark, noise stress tests and explainability on the same dataset; the contribution here is the separation of discrimination from calibration under noise, the tested mechanism behind it, and explanation checks on the quantum model itself. No quantum advantage is claimed or observed.
+We study whether a small hybrid quantum-classical model can match classical machine learning on breast cancer diagnosis, and what it would take to trust it. On the Breast Cancer Wisconsin (Diagnostic) dataset (569 patients, 30 features) reduced to four principal components, a four-qubit variational quantum classifier (VQC, RY angle encoding, three RX-RY-RZ + CNOT layers, 38 parameters) and a quantum-kernel SVM (QSVM) are compared with tuned classical models on the same inputs, a classical neural network with the same number of parameters, and logistic regression on all 30 features. In 5-fold cross-validation repeated three times over all patients, the VQC reaches an AUC of 0.993 ± 0.005 and an accuracy of 0.960 ± 0.012, statistically indistinguishable from tuned logistic regression, RBF-SVM and the QSVM on the same four inputs (all AUC differences below 0.001; corrected resampled t-tests with Holm adjustment). Near this ceiling AUC cannot separate models, and sensitivity measured on 42 test cancers carries a 95% interval 12 to 18 percentage points wide; comparing models at fixed 95% specificity removes the threshold from the comparison and again shows no difference. Three further analyses examine reliability, robustness and explainability. An ensemble of five circuits with a threshold calibrated for 98% sensitivity reaches 0.976 sensitivity on the test set and on five validation splits, at a specificity of 0.91 on the latter. Under simulated hardware noise the trained read-out fails (accuracy 0.74 at 10% CNOT error) while the ranking of patients survives (AUC 0.996); we show that the noisy circuit output is an affine copy of the noiseless one for depolarising, amplitude-damping and read-out errors (R² ≥ 0.99), which explains why refitting two classical read-out parameters restores accuracy and why the number of measurement shots needed grows as 1/λ², confirmed by a collapse of accuracy curves onto N·λ². Coherent over-rotation errors break the affine relation and the recovery, as predicted. An exact Pauli-path decomposition derives the regularity from circuit structure and predicts, from the noiseless circuit alone, where it breaks; as predicted, it breaks earlier in deeper circuits (Spearman ρ = −0.92 between depth and breakdown point over 15 circuits). Explanations computed on the quantum model itself (integrated gradients via the parameter-shift rule, exact Shapley values) agree with each other, are faithful in deletion tests and stable across circuits, but only partly pass a weight-randomisation sanity check, because feature-level explanations of this pipeline have only four degrees of freedom set by the circuit. A closely related 2026 study already reports a VQC benchmark, noise stress tests and explainability on the same dataset; the contribution here is the separation of discrimination from calibration under noise, the tested mechanism behind it, and explanation checks on the quantum model itself. No quantum advantage is claimed or observed.
 
 ---
 
@@ -579,6 +579,8 @@ Four results follow.
 3. **Compressing to four components costs little.** Logistic regression on 30 features is 1.6 accuracy points better than the VQC (interval −3.5 to +0.2, not significant after adjustment) and equal in AUC.
 4. **The hold-out results are reproduced.** The VQC's cross-validated accuracy (0.960) agrees with its test-set mean over seeds (0.956, Table 2).
 
+**A classical model with exactly the VQC's function class.** With single angle encoding, every expectation value of the circuit is a linear combination of the 81 functions $\prod_{k=1}^{4} \{1, \cos x_k, \sin x_k\}$: these are the expectation values $\langle P \rangle$ of the encoded product state for the $3^4 = 81$ Pauli strings without $Y$ (Section 7.5). The VQC is therefore a logistic regression on these 81 features whose coefficients are restricted to those a three-layer circuit can reach. Logistic regression on the same 81 features without that restriction (`run_trig_baseline.py`, regularisation tuned by inner cross-validation, same 15 folds) reaches AUC 0.9936 ± 0.0048 and accuracy 0.962 ± 0.010. The VQC differs by −0.0006 in AUC (95% interval −0.003 to +0.002, $p = 0.62$) and −0.002 in accuracy (−0.017 to +0.012). The restriction imposed by the circuit neither helps nor costs anything measurable: on these data the VQC behaves as the classical trigonometric model it can be written as.
+
 *Remaining asymmetry.* The classical models were tuned inside every fold; the VQC architecture was fixed earlier, using an ablation (Section 5.4) on training patients who now also appear in cross-validation test folds. Since depths 2 to 4 performed within noise of each other, the advantage this gives the VQC is likely small, but it is not zero.
 
 ### 7.2 Interpreting AUC and sensitivity
@@ -685,6 +687,54 @@ where $J$ is the Jacobian of the preprocessing (standardisation, PCA, angle scal
 
 **What can be claimed.** The explanations are faithful to the model, consistent between two independent methods and stable across independently trained circuits, and they are computed on the quantum model itself with circuit evaluations only. They show that the VQC relies on the same nucleus properties as logistic regression. They do not show that these are the properties a pathologist would use, which was not tested, and at feature level they are constrained by the four-component bottleneck. Stronger claims would need a learned compression (so that the circuit, not PCA, decides how features combine) and comparison with expert judgement.
 
+### 7.5 From circuit structure to the affine regularity
+
+Section 7.3 established the affine regularity empirically. Here it is derived from the structure of the circuit, which yields conditions for when it holds and a test of a prediction about circuit depth (`qmlbc/pauli_paths.py`, `run_pauli_paths.py`).
+
+**Exact decomposition.** In the Heisenberg picture the measured observable $Z_0$ is propagated backwards through the trained gates and expanded in the $4^n$ Pauli strings. A depolarising channel of strength $p$ multiplies every non-identity Pauli on its qubit by $q = 1 - 4p/3$ and leaves the identity unchanged. Each Pauli path from $Z_0$ back to the encoded state is therefore damped by $q_2^{k} q_1^{m}$, where $k$ and $m$ count the two-qubit and single-qubit noise locations at which the path carries a non-identity Pauli on the affected qubit. Grouping paths by $(k, m)$ gives
+
+$$
+\tilde f_p(x) = \sum_{k, m} q_2(p)^{k}\, q_1(p)^{m}\, g_{k,m}(x), \qquad \sum_{k,m} g_{k,m}(x) = f(x),
+$$
+
+where the *hit-count spectrum* $g_{k,m}(x)$, the part of the noiseless output carried by paths hit $(k, m)$ times, is computed once from the noiseless circuit. Every noise level then follows without further simulation. For the trained circuits this decomposition reproduces density-matrix simulation to within $3 \times 10^{-13}$.
+
+**When the output stays affine.** If every sector carried the same function of $x$, $g_{k,m} = w_{k,m} f$, the output would be exactly affine with $\lambda(p) = \sum w_{k,m} q_2^k q_1^m$. In general, write $g_{k,m} = w_{k,m} f + r_{k,m}$ with $w_{k,m}$ the projection of $g_{k,m}$ on $f$ over the patients. Then the least-squares attenuation is exactly
+
+$$
+\lambda(p) = \sum_{k,m} w_{k,m}\, q_2(p)^{k}\, q_1(p)^{m},
+$$
+
+the generating function of the spectrum, and the departure from affinity is carried by the residuals $r_{k,m}$, the parts of each sector that are *not* proportional to $f$. Expanding the damping around the mean number of damping events $k_{\text{eff}} = \sum w_{k,m}(k + m/10)$ gives two closed forms:
+
+$$
+\lambda(p) \approx (1 - 4p/3)^{k_{\text{eff}}}, \qquad 1 - R^2(p) \approx \left(\tfrac{4p}{3}\right)^2 D, \qquad D = \frac{\operatorname{Var}_x\!\left[\sum_{k,m} (k + m/10)\, r_{k,m}(x)\right]}{\operatorname{Var}_x f(x)} .
+$$
+
+The affine regularity thus holds while paths that are damped differently carry the same function of the input. Its breakdown is measured by the *path dispersion* $D$, a property of the noiseless circuit and the data distribution. Setting $R^2 = 0.99$ predicts a breakdown point $p^* \approx 0.075/\sqrt{D}$. One special case is exact: if the backward-propagated observable is a single Pauli string, all paths coincide, $D = 0$ and the output is affine at every noise level. This is the one-layer circuit of Section 5.4, whose observable becomes $Z_1 Z_2 Z_3$.
+
+**Test 1: attenuation.** For the five three-layer circuits $k_{\text{eff}} = 20.9$ effective damping events on average (single-qubit events counted at one tenth), against 24 two-qubit noise locations in the circuit. The closed form $(1-4p/3)^{k_{\text{eff}}}$ matches the exact $\lambda$ to within 1.2% up to $p = 0.05$ and 5.3% at $p = 0.1$ (Figure 24, left).
+
+**Test 2: depth (proposal hypothesis RQ1).** The hypothesis that deeper circuits lose affinity earlier was tested on 15 newly trained circuits, one to five layers with three initialisations each. It could have failed: deeper circuits have more noise locations but also more mixing, which might equalise damping across paths.
+
+**Table 14.** Path dispersion and breakdown point by depth (mean over three circuits). $p^*$: CNOT error at which the exact $R^2$ falls below 0.99.
+
+| Layers | Test accuracy | $k_{\text{eff}}$ | $D$ | $p^*$ exact | $p^*$ first order |
+|---|---|---|---|---|---|
+| 1 | 0.728 | 6.2 | 0 | never (affine at every $p$) | – |
+| 2 | 0.959 | 13.4 | 0.045 | 0.242 | 0.355 |
+| 3 | 0.962 | 21.1 | 0.654 | 0.099 | 0.137 |
+| 4 | 0.953 | 27.9 | 0.897 | 0.075 | 0.086 |
+| 5 | 0.942 | 34.6 | 1.366 | 0.060 | 0.065 |
+
+![Pauli paths](../results/figures/24_pauli_paths.png)
+
+*Figure 24. Left: exact attenuation and the closed form for the three-layer circuits. Right: breakdown point against path dispersion for 12 circuits of two to five layers; the dashed curve is the first-order prediction.*
+
+The prediction holds. The breakdown point falls with depth (Spearman $\rho = -0.92$ over the 15 circuits, one-layer circuits counted as not breaking, $p = 10^{-6}$), and $D$, computed from the noiseless circuit alone, orders the circuits by breakdown point even better ($\rho = -0.97$). Depth matters through $D$: the three-layer circuit with the largest dispersion ($D = 1.6$) breaks at $p^* = 0.06$, as early as a five-layer one. The first-order formula is accurate where it matters most, for circuits that break early (within 15% for the seven circuits with $D \ge 0.7$), and overestimates the breakdown point of more robust circuits by 23% to 55%, because it neglects higher-order terms that grow with $k_{\text{eff}}$.
+
+**Scope.** The theory covers Pauli noise (depolarising, and by extension any stochastic Pauli channel with its own damping factors). It does not cover amplitude damping, which is not a Pauli channel, or coherent errors, which mix Pauli paths instead of damping them; randomised compiling, which converts coherent errors into Pauli noise, would bring them under it, and testing that is left to future work. The depth study uses four qubits and one observable. How $D$ scales with the number of qubits and with multi-qubit observables is untested.
+
 ---
 
 ## 8. Discussion
@@ -695,7 +745,7 @@ where $J$ is the Jacobian of the preprocessing (standardisation, PCA, angle scal
 
 **Q2 (reliability).** The dependence on initialisation is controlled by an ensemble, and the sensitivity at threshold 0.5 by a threshold calibrated on out-of-fold predictions: 0.976 sensitivity on the test set and on validation splits, at a specificity of 0.91 on the latter (Sections 6.1, 6.4).
 
-**Q3 (robustness).** Incoherent noise and read-out errors shrink the circuit output by a common factor; ranking survives, two classical parameters restore the decision rule, and the price is shots growing as $1/\lambda^2$. Coherent errors are not covered by this (Section 7.3).
+**Q3 (robustness).** Incoherent noise and read-out errors shrink the circuit output by a common factor; ranking survives, two classical parameters restore the decision rule, and the price is shots growing as $1/\lambda^2$. Coherent errors are not covered by this (Section 7.3). For Pauli noise the regularity follows from the structure of the circuit: it holds while differently damped Pauli paths carry the same function of the input, its breakdown is predicted by a path dispersion computed from the noiseless circuit, and it breaks earlier in deeper circuits (Section 7.5).
 
 **Q4 (explainability).** Explanations of the quantum model itself pass agreement, faithfulness and stability checks and partly pass a sanity check, which reveals that four numbers per patient carry everything the circuit contributes (Section 7.4).
 
@@ -703,7 +753,7 @@ where $J$ is the Jacobian of the preprocessing (standardisation, PCA, angle scal
 
 - **The problem is easy.** The classes are nearly linearly separable in the first principal components (Figure 5). A logistic regression with five parameters on the same four inputs equals the VQC in repeated cross-validation.
 - **The circuit is classically trivial.** Four qubits correspond to a 16-dimensional state vector; the simulation is exact and takes milliseconds. Nothing here is hard to compute classically.
-- **Wins against weaker classical models are not quantum effects.** The VQC beats random forests, XGBoost and an untuned neural network of equal size, but not a linear model.
+- **Wins against weaker classical models are not quantum effects.** The VQC beats random forests, XGBoost and an untuned neural network of equal size, but not a linear model, and it equals logistic regression on the 81 trigonometric features that span its function class (Section 7.1).
 - **The differences are not statistically resolvable** among the best models (Table 11), and AUC is at its ceiling (Section 7.2).
 
 ### 8.3 Limitations
@@ -719,7 +769,7 @@ where $J$ is the Jacobian of the preprocessing (standardisation, PCA, angle scal
 
 ### 8.4 Research gaps
 
-- **Which noise keeps a classifier's ranking?** Section 7.3 suggests a classification-specific notion of robustness: noise is harmless to discrimination when it acts on the measured observable as an affine map. For which circuit families, depths and realistic device noise this holds, and how quickly it breaks under coherent and correlated errors, is open and testable on hardware.
+- **Which noise keeps a classifier's ranking?** Sections 7.3 and 7.5 suggest a classification-specific notion of robustness: noise is harmless to discrimination when it acts on the measured observable as an affine map, which for Pauli noise is governed by the path dispersion $D$. How $D$ scales with qubit number and observable, whether randomised compiling restores affinity under coherent errors, and whether the predictions hold on hardware are open.
 - **Labelled versus circuit-based mitigation.** Refitting the read-out on labelled patients and estimating the rescaling factor from calibration circuits [20] address the same problem with different resources; their costs and failure modes in a clinical setting have not been compared.
 - **Scalability and trainability.** Gradients of randomly initialised deep circuits vanish exponentially with qubit number (barren plateaus [15]). Whether trainable circuits remain useful beyond classically simulable sizes is unresolved.
 - **Data encoding.** Angle encoding needs one qubit per feature, which forces compression and limits what explanations can resolve. Encodings matched to the structure of biomedical data are largely unexplored.
@@ -733,7 +783,7 @@ where $J$ is the Jacobian of the preprocessing (standardisation, PCA, angle scal
 
 A four-qubit variational quantum classifier matches the best classical models on breast cancer diagnosis when both receive the same four principal components and are compared with repeated cross-validation and corrected tests (AUC 0.993, accuracy 0.960), and it does not exceed them. Near this ceiling AUC cannot distinguish models and sensitivity on a small test set carries wide intervals, so the comparison is best made at fixed operating points and with calibration measures.
 
-The study's main finding concerns noise. Simulated gate and read-out errors leave the classifier's ranking of patients intact while destroying its decision rule, because they shrink the circuit output by a common factor. This mechanism, tested against an error model for which it predicts failure, explains why refitting two classical read-out parameters restores accuracy and why the number of measurement shots needed grows as $1/\lambda^2$. Explanations computed on the quantum model itself are faithful and stable but, at feature level, largely constrained by the dimensionality reduction.
+The study's main finding concerns noise. Simulated gate and read-out errors leave the classifier's ranking of patients intact while destroying its decision rule, because they shrink the circuit output by a common factor. This mechanism, tested against an error model for which it predicts failure, explains why refitting two classical read-out parameters restores accuracy and why the number of measurement shots needed grows as $1/\lambda^2$. An exact Pauli-path decomposition derives it from the circuit structure: the output stays affine while differently damped paths carry the same function of the input, a path dispersion computed from the noiseless circuit predicts where this breaks, and deeper circuits break earlier. Explanations computed on the quantum model itself are faithful and stable but, at feature level, largely constrained by the dimensionality reduction.
 
 Closely related work [18] already benchmarks a VQC on this dataset with noise tests and explainability; the contribution here is the separation of discrimination from calibration under noise, its tested mechanism, and validity checks of explanations on the quantum model. Small quantum models can match classical ones on an easy medical task in simulation; they offer no advantage on it.
 
@@ -741,12 +791,13 @@ Closely related work [18] already benchmarks a VQC on this dataset with noise te
 
 ## 10. Future Work
 
-1. **Hardware test of the noise mechanism.** Run the trained circuits on a quantum device, measure $\lambda$ directly, and test whether ranking is preserved and recalibration suffices under real noise, including coherent and correlated errors.
-2. **Map the boundary of affine noise.** Vary circuit depth, entangling structure and observable, and identify when local noise stops acting as a common rescaling; compare labelled read-out refitting with circuit-based rescaling [20].
-3. **External validation.** Evaluate the pipeline on an independent cohort, as [18] did with the Wisconsin Original data.
-4. **Learned compression and stronger explanations.** Replace PCA by a classical encoder trained with the circuit, so that the explanations reflect the quantum model rather than a fixed projection, and compare them with pathologists' judgement.
-5. **Noise-aware operating points.** Choose the decision threshold jointly with the shot budget and the expected noise level.
-6. **Harder data.** Histopathology or mammography images and multi-omics data, where classical baselines are less saturated.
+1. **Scaling of the path theory.** Compute the path dispersion for more qubits, multi-qubit observables and other entangling patterns (using local Pauli propagation rather than full Pauli-transfer matrices), and test whether randomised compiling turns coherent errors into Pauli noise that the theory and recalibration cover.
+2. **Hardware test of the noise mechanism.** Run the trained circuits on a quantum device, measure $\lambda$ directly, and test whether ranking is preserved and recalibration suffices under real noise, including coherent and correlated errors.
+3. **Map the boundary of affine noise.** Vary circuit depth, entangling structure and observable, and identify when local noise stops acting as a common rescaling; compare labelled read-out refitting with circuit-based rescaling [20].
+4. **External validation.** The Wisconsin Original cohort records nine different cytology scores, so a model trained on the 30 Diagnostic features cannot be applied to it. It supports only a method-level replication with models retrained on its own features, as in [18]; validation of a frozen model needs a cohort measured with the same 30 features.
+5. **Learned compression and stronger explanations.** Replace PCA by a classical encoder trained with the circuit, so that the explanations reflect the quantum model rather than a fixed projection, and compare them with pathologists' judgement.
+6. **Noise-aware operating points.** Choose the decision threshold jointly with the shot budget and the expected noise level.
+7. **Harder data.** Histopathology or mammography images and multi-omics data, where classical baselines are less saturated.
 
 ---
 
@@ -761,6 +812,8 @@ python run_validation_check.py --oof   # Section 6.4, Table 9
 python run_fair_comparison.py          # Sections 7.1 and 7.2
 python run_noise_mechanism.py          # Section 7.3
 python run_explanation_checks.py       # Section 7.4
+python run_trig_baseline.py            # Section 7.1, function-class-matched baseline
+python run_pauli_paths.py              # Section 7.5
 streamlit run app.py         # interactive demo
 ```
 
