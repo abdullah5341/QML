@@ -36,9 +36,10 @@ It is broken into four questions, each answered in its own section:
 3. Reporting of the VQC over several random initialisations, not a single run.
 4. An ablation over circuit depth and encoding strategy, including an analytical explanation of the failure of the one-layer circuit.
 5. Three extensions aimed at clinical readiness: an ensemble with a sensitivity-calibrated threshold, a study of gate and shot noise with a classical read-out recalibration, and per-patient explanations by integrated gradients evaluated with the parameter-shift rule.
-6. A repeated cross-validation comparison with tuned classical models and a parameter-matched neural network, corrected significance tests, confidence intervals and calibration measures.
+6. A repeated cross-validation comparison with tuned classical models, a parameter-matched neural network and a classical model spanning the VQC's exact function class (81 trigonometric features), with corrected significance tests, confidence intervals and calibration measures.
 7. A tested mechanism for the noise result: the noisy circuit output is an affine function of the noiseless one for three error models and not for a fourth, which predicts when read-out recalibration works and how the shot cost scales.
 8. Validity checks of the explanations computed on the quantum model itself: agreement with exact Shapley values, deletion tests, a weight-randomisation sanity check and stability across circuits.
+9. An exact Pauli-path decomposition of the noisy classifier output, and a path dispersion D computed from the noiseless circuit that predicts where the affine regularity breaks; confirmed on 15 circuits of one to five layers (Spearman ρ = −0.97).
 
 ### 1.1 Related work and positioning
 
@@ -46,7 +47,7 @@ Variational and kernel quantum classifiers have been applied to the Wisconsin br
 
 Two further strands are relevant. Integrated gradients and baseline SHAP have been adapted to parameterised quantum circuits [19]. In error mitigation, noise that acts as a global depolarising channel is known to rescale expectation values by a common factor that can be estimated and divided out [20]. Pauli-path expansions of noisy circuits, in which each path is damped by the noise it meets, are an established tool for classically simulating noisy random and variational circuits [25, 26]; Section 7.5 uses the same expansion for a different purpose.
 
-Against this background the present study does not propose a new model. What it adds, as far as the sources above show, is (i) the observation that under noise a quantum classifier keeps its discrimination but loses its decision rule, which AUC-only reporting cannot reveal; (ii) a mechanism for this, tested against four error models including one for which it predicts failure, together with the resulting shot-cost law; (iii) recovery by refitting two read-out parameters on labelled data, without the extra calibration circuits of [20]; (iv) explanations computed on the quantum model itself rather than on a surrogate, with validity checks; and (v) a parameter-matched classical baseline with corrected significance tests. A systematic literature search was not carried out, and these points may have precedents in the error-mitigation and quantum-robustness literature that were not found.
+Against this background the present study does not propose a new model. What it adds, as far as the sources above show, is (i) the observation that under noise a quantum classifier keeps its discrimination but loses its decision rule, which AUC-only reporting cannot reveal; (ii) a mechanism for this, tested against four error models including one for which it predicts failure, together with a confirmation for a trained classifier of the known 1/λ² shot overhead of rescaling; (iii) recovery by refitting two read-out parameters on labelled data, without the extra calibration circuits of [20]; (iv) explanations computed on the quantum model itself rather than on a surrogate, with validity checks; (v) a parameter-matched network and a classical model spanning the VQC's exact function class (81 trigonometric features), with corrected significance tests; and (vi) a structural criterion, the path dispersion, that predicts from the noiseless circuit when Pauli noise stops acting as a common rescaling. A systematic literature search was not carried out, and these points may have precedents in the error-mitigation and quantum-robustness literature that were not found.
 
 ---
 
@@ -873,6 +874,6 @@ Software: Python 3.14, PennyLane 0.45 [16], scikit-learn 1.9 [9], XGBoost 3.4. A
 
 [24] S. M. Lundberg, S.-I. Lee, "A unified approach to interpreting model predictions," *Advances in Neural Information Processing Systems* 30 (2017).
 
-[25] D. Aharonov, X. Gao, Z. Landau, Y. Liu, U. Vazirani, "A polynomial-time classical algorithm for noisy random circuit sampling," *Proceedings of the 55th Annual ACM Symposium on Theory of Computing (STOC)* (2023). arXiv:2211.03999
+[25] D. Aharonov, X. Gao, Z. Landau, Y. Liu, U. Vazirani, "A polynomial-time classical algorithm for noisy random circuit sampling," *Proceedings of the 55th Annual ACM Symposium on Theory of Computing (STOC)*, 945–957 (2023). doi:10.1145/3564246.3585234; arXiv:2211.03999
 
-[26] E. Fontana, M. S. Rudolph, R. Duncan, I. Rungger, C. Cîrstoiu, "Classical simulations of noisy variational quantum circuits," *npj Quantum Information* (2025). doi:10.1038/s41534-024-00955-1; arXiv:2306.05400 (2023)
+[26] E. Fontana, M. S. Rudolph, R. Duncan, I. Rungger, C. Cîrstoiu, "Classical simulations of noisy variational quantum circuits," *npj Quantum Information* 11, 84 (2025). doi:10.1038/s41534-024-00955-1; arXiv:2306.05400 (2023)
